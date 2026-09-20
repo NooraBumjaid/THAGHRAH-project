@@ -24,8 +24,8 @@ XAI_CHAT_URL = "https://api.x.ai/v1/chat/completions"
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 # xAI model ids change; `grok-3-mini` is often unavailable on new keys. `grok-4` is the current default in xAI docs.
 DEFAULT_XAI_MODEL = "grok-4"
-# Fast, widely available on Groq Cloud; override with GROK_MODEL if you prefer 70B etc.
-DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
+# Groq retired llama-3.1-8b-instant (Aug 2026); gpt-oss-20b is the documented replacement.
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"
 
 # If .env points at xAI but GROK_MODEL is a Groq-style id (or the reverse), fix it so requests don’t 400.
 _GROQ_LIKE_MODEL_PREFIXES = (
@@ -41,6 +41,16 @@ _GROQ_LIKE_MODEL_PREFIXES = (
 
 # Older examples use these; many accounts now get 400 on chat/completions — use current default instead.
 _XAI_MODELS_UPGRADE_TO_DEFAULT = frozenset({"grok-3-mini", "grok-3"})
+_GROQ_MODELS_UPGRADE_TO_DEFAULT = frozenset(
+    {
+        "llama-3.1-8b-instant",
+        "llama-3.3-70b-versatile",
+        "llama3-8b-8192",
+        "llama3-70b-8192",
+        "mixtral-8x7b-32768",
+        "gemma2-9b-it",
+    }
+)
 
 
 def _coerce_model_for_endpoint(chat_url: str, model_name: str) -> str:
@@ -62,6 +72,12 @@ def _coerce_model_for_endpoint(chat_url: str, model_name: str) -> str:
             )
             return DEFAULT_XAI_MODEL
     if "groq.com" in chat_url.lower():
+        if low in _GROQ_MODELS_UPGRADE_TO_DEFAULT:
+            print(
+                f"[Thaghrah AI] GROK_MODEL {m!r} was retired on Groq; using {DEFAULT_GROQ_MODEL!r} instead.",
+                file=sys.stderr,
+            )
+            return DEFAULT_GROQ_MODEL
         if low.startswith("grok"):
             print(
                 f"[Thaghrah AI] GROK_MODEL {m!r} is not valid on Groq; using {DEFAULT_GROQ_MODEL!r} instead.",
@@ -109,17 +125,28 @@ def _friendly_api_http_error(status: int, body_text: str, chat_url: str = "") ->
     if status == 429:
         return "Rate limit reached (429). Wait a short time and try again."
     if status == 400:
-        if "model" in low and any(x in low for x in ("not found", "does not exist", "invalid_model", "invalid model")):
+        if "model" in low and any(
+            x in low
+            for x in (
+                "not found",
+                "does not exist",
+                "invalid_model",
+                "invalid model",
+                "decommission",
+                "deprecated",
+                "no longer",
+            )
+        ):
             if is_xai:
                 return (
-                    "The model name is not valid for xAI Grok (400). In .env set GROK_MODEL to an id from "
+                    "The model name is not valid for xAI Grok (400). Set GROK_MODEL to an id from "
                     "console.x.ai (e.g. grok-4 or grok-4-latest). Remove GROK_MODEL to use the app default. "
-                    "Do not use Groq names (llama-…). Restart the server after editing .env."
+                    "Do not use Groq names (llama-…)."
                 )
             if is_groq:
                 return (
-                    "The model name is not valid on Groq (400). In .env set GROK_MODEL to a current Groq model id "
-                    "(e.g. llama-3.1-8b-instant), then restart the server."
+                    "The model name is not valid on Groq (400). Set GROK_MODEL to a current Groq model id "
+                    "(e.g. openai/gpt-oss-20b) in Render environment variables, then redeploy."
                 )
             return (
                 "The model name is not valid for this provider (400). Set GROK_MODEL to a model id that matches "
@@ -128,8 +155,8 @@ def _friendly_api_http_error(status: int, body_text: str, chat_url: str = "") ->
         if "max_tokens" in low or "max_completion" in low:
             return "The AI provider rejected request parameters (400). Restart the server after updating the app."
     return (
-        "The AI service returned an error. Check the terminal where you run `python run.py` for a "
-        "[Thaghrah AI] log line with details. You can also try a shorter prompt or set GROK_MODEL in .env."
+        "The AI service returned an error. On Render, set GROK_MODEL to a current Groq id "
+        "(openai/gpt-oss-20b) and check the service logs for a [Thaghrah AI] line."
     )
 
 
