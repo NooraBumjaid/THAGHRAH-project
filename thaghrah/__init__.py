@@ -1,0 +1,128 @@
+"""Thaghrah Flask application factory."""
+import atexit
+import glob
+import logging
+import os
+import secrets
+import time
+
+from flask import Flask, g, request, session
+from logging.handlers import RotatingFileHandler
+
+from thaghrah.core.config import APP_LOG_PATH, APP_ROOT, LOGS_DIR, PCAPS_DIR
+
+
+def _setup_app_logging(app):
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    abs_log_path = os.path.abspath(APP_LOG_PATH)
+    for h in logging.getLogger().handlers:
+        if isinstance(h, RotatingFileHandler) and os.path.abspath(getattr(h, "baseFilename", "")) == abs_log_path:
+            return
+    file_handler = RotatingFileHandler(APP_LOG_PATH, maxBytes=2_000_000, backupCount=5, encoding="utf-8")
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info("Logging initialized at %s", APP_LOG_PATH)
+
+
+def _register_request_timing(app):
+    @app.before_request
+    def _request_timer_start():
+        g._request_start = time.perf_counter()
+
+    @app.after_request
+    def _request_timer_log(response):
+        started = getattr(g, "_request_start", None)
+        if started is None:
+            return response
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        should_log = (
+            request.path in ("/submit_flag", "/challenges/ai/submit-flag")
+            or request.path.startswith("/challenges/ai")
+            or elapsed_ms >= 1200
+        )
+        if should_log:
+            app.logger.info(
+                "REQ method=%s path=%s status=%s elapsed_ms=%.2f user_id=%s",
+                request.method,
+                request.path,
+                response.status_code,
+                elapsed_ms,
+                session.get("user_id"),
+            )
+        return response
+
+
+def _remove_ai_pcaps():
+    """Delete ephemeral AI-generated capture files under static/pcaps."""
+    pattern = os.path.join(PCAPS_DIR, "ai_u*.pcapng")
+    removed = 0
+    for path in glob.glob(pattern):
+        try:
+            if os.path.isfile(path):
+                os.unlink(path)
+                removed += 1
+        except OSError:
+            continue
+    return removed
+
+
+def _register_ai_pcap_cleanup(app):
+    """Ensure AI pcaps are cleaned at startup and server shutdown."""
+    startup_removed = _remove_ai_pcaps()
+    if startup_removed:
+        app.logger.info("AI_PCAP_CLEANUP startup_removed=%s", startup_removed)
+
+    def _cleanup_on_exit():
+        removed = _remove_ai_pcaps()
+        if removed:
+            app.logger.info("AI_PCAP_CLEANUP shutdown_removed=%s", removed)
+
+    atexit.register(_cleanup_on_exit)
+
+
+def _load_secret_key():
+    """Prefer SECRET_KEY env, then a local file, so logins survive server reloads."""
+    env_key = os.environ.get("SECRET_KEY", "").strip()
+    if env_key:
+        return env_key
+    secret_path = os.path.join(APP_ROOT, ".secret_key")
+    try:
+        with open(secret_path, "r", encoding="utf-8") as secret_file:
+            stored = secret_file.read().strip()
+            if stored:
+                return stored
+    except OSError:
+        pass
+    generated = secrets.token_hex(32)
+    try:
+        with open(secret_path, "w", encoding="utf-8") as secret_file:
+            secret_file.write(generated)
+    except OSError:
+        pass
+    return generated
+
+
+def create_app():
+    """Application factory: call once per process (e.g. from run.py or WSGI)."""
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(APP_ROOT, "templates"),
+        static_folder=os.path.join(APP_ROOT, "static"),
+    )
+    app.secret_key = _load_secret_key()
+
+    _setup_app_logging(app)
+    _register_request_timing(app)
+    _register_ai_pcap_cleanup(app)
+
+    from thaghrah.routes import ai_lab, auth, network, pages
+
+    auth.register_routes(app)
+    pages.register_routes(app)
+    network.register_routes(app)
+    ai_lab.register_routes(app)
+
+    return app

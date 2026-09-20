@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.title }} challenges - Thaghrah{% endblock %}
+{% block body_class %}theme-cyber app-body{% endblock %}
+
+{% block extra_head %}
+<style>
+.protocol-complete-section { text-align: center; margin-top: 2rem; }
+.protocol-complete-buttons { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: center; }
+.protocol-complete-buttons .btn-protocol-nav { display: inline-block; width: auto; min-width: 10rem; padding: 0.65rem 1.75rem; font-size: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-page-galaxy login-page-galaxy--home">
+    <div class="galaxy-bg" aria-hidden="true"></div>
+    <div class="stars-layer stars-layer-1" aria-hidden="true"></div>
+    <div class="stars-layer stars-layer-2" aria-hidden="true"></div>
+    <div class="stars-layer stars-layer-3" aria-hidden="true"></div>
+    <div class="auth-container-over-galaxy">
+        <div class="container cyber-page-shell">
+            <header class="dashboard-header">
+                <a href="{{ url_for('network_challenges') }}" class="back-link">← Back to protocols</a>
+                <p class="section-chip">Protocol track</p>
+                <div class="dashboard-logo-container">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Thaghrah" class="dashboard-logo">
+                </div>
+                <h2>{{ category.title }}</h2>
+                <p>Choose a challenge below. Complete them in order to unlock the next and earn points.</p>
+            </header>
+
+            <section class="dashboard-stats stat-strip">
+                <div class="dash-stat">
+                    <span class="dash-stat-value">{{ completed_in_category }}<span class="dash-stat-suffix">/{{ challenges|length }}</span></span>
+                    <span class="dash-stat-label">In this protocol</span>
+                </div>
+                {% if total_points is defined %}
+                <div class="dash-stat">
+                    <span class="dash-stat-value">{{ total_points }}</span>
+                    <span class="dash-stat-label">Total points</span>
+                </div>
+                {% endif %}
+            </section>
+
+            <section class="protocol-info-panel cyber-panel">
+                <div class="protocol-info-header">
+                    <h3 class="section-title">About {{ category.title }}</h3>
+                    <p class="section-subtitle">{{ protocol_details.overview }}</p>
+                </div>
+                <div class="protocol-info-grid">
+                    <div class="protocol-info-card">
+                        <span class="protocol-info-label">Common ports</span>
+                        <p>{{ protocol_details.common_ports }}</p>
+                    </div>
+                    <div class="protocol-info-card">
+                        <span class="protocol-info-label">What to inspect</span>
+                        <p>{{ protocol_details.focus }}</p>
+                    </div>
+                    <div class="protocol-info-card protocol-info-card-wide">
+                        <span class="protocol-info-label">Why it matters</span>
+                        <p>{{ protocol_details.why_it_matters }}</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="challenges-section cyber-panel protocol-challenges-panel">
+                <h3 class="section-title">Challenges</h3>
+                <div class="challenges-grid">
+                    {% for challenge in challenges %}
+                    <div class="challenge-card {% if challenge.id in completed_ids %}completed{% elif challenge.id in unlocked %}unlocked{% else %}locked{% endif %}">
+                        <div class="challenge-header">
+                            <h3>{{ challenge.title }}</h3>
+                            <span class="challenge-badge">
+                                {% if challenge.id in completed_ids %}✓ Completed{% elif challenge.id in unlocked %}Start{% else %}Locked{% endif %}
+                            </span>
+                        </div>
+                        <p class="challenge-description">{{ challenge.description[:100] }}{% if challenge.description|length > 100 %}…{% endif %}</p>
+                        <div class="challenge-footer">
+                            {% if challenge.id in completed_ids %}
+                            <a href="{{ url_for('challenge', challenge_id=challenge.id) }}" class="btn btn-secondary">Completed</a>
+                            {% elif challenge.id in unlocked %}
+                            <a href="{{ url_for('challenge', challenge_id=challenge.id) }}" class="btn btn-primary">Start challenge</a>
+                            {% else %}
+                            <button class="btn btn-disabled" disabled>Complete previous</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            {% if next_category or previous_category %}
+            <section class="protocol-complete-section">
+                <div class="protocol-complete-buttons">
+                    {% if previous_category %}
+                    <a href="{{ url_for('category_challenges', category_id=previous_category['id']) }}" class="btn btn-secondary btn-protocol-nav">← {{ previous_category['title'] }}</a>
+                    {% endif %}
+                    {% if next_category %}
+                    <a href="{{ url_for('category_challenges', category_id=next_category['id']) }}" class="btn btn-primary btn-protocol-nav">{{ next_category['title'] }} →</a>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

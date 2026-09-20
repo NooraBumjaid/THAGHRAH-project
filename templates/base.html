@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Thaghrah - Cybersecurity Learning Platform{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <nav class="navbar">
+        <div class="container nav-inner">
+            <a href="{{ url_for('index') }}" class="nav-brand">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Thaghrah" class="nav-logo">
+                <span class="nav-brand-text">Thaghrah</span>
+            </a>
+            {% if session.get('user_id') %}
+            <div class="nav-actions">
+                <a href="{{ url_for('home') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('network_challenges') }}" class="nav-link">Challenges</a>
+                <a href="{{ url_for('ai_challenge_lab') }}" class="nav-link">AI lab</a>
+                <a href="{{ url_for('guide') }}" class="nav-link">Guide</a>
+                <div class="nav-stats">
+                    <span class="nav-stat" title="Total points" id="nav-points">—</span>
+                    <span class="nav-divider">|</span>
+                    <span class="nav-email">{{ session.get('email', '') }}</span>
+                </div>
+                <a href="{{ url_for('logout') }}" class="btn btn-nav-logout">Logout</a>
+            </div>
+            {% else %}
+            <div class="nav-actions nav-actions-public">
+                <a href="{{ url_for('login') }}" class="nav-link">Sign in</a>
+                <a href="{{ url_for('register') }}" class="btn btn-nav-primary">Get started</a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+    
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 Thaghrah — Educational Cybersecurity Platform</p>
+        </div>
+    </footer>
+    
+    {% if session.get('user_id') %}
+    <script>
+    (function() {
+        var el = document.getElementById('nav-points');
+        if (el) {
+            fetch('{{ url_for("api_me") }}', { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(d) { el.textContent = d.points + ' pts'; })
+                .catch(function() {});
+        }
+    })();
+    </script>
+    {% endif %}
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

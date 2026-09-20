@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - Thaghrah{% endblock %}
+{% block body_class %}theme-cyber landing-body{% endblock %}
+
+{% block content %}
+<section class="landing-page" id="hero-section">
+    <div class="landing-grid" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+    <div class="landing-wave landing-wave-top" aria-hidden="true"></div>
+    <div class="landing-wave landing-wave-bottom" aria-hidden="true"></div>
+    <div class="landing-noise" aria-hidden="true"></div>
+
+    <div class="landing-center">
+        <p class="landing-kicker">Interactive cybersecurity learning experience</p>
+        <div class="landing-title-frame">
+            <span class="landing-title-mark">=</span>
+            <h1 class="landing-title">THAGHRAH</h1>
+            <span class="landing-title-mark">=</span>
+        </div>
+        <p class="landing-subtitle">Master network traffic analysis through guided protocol challenges, flags, badges, and points.</p>
+        <div class="landing-actions">
+            <a href="{{ url_for('register') }}" class="btn btn-primary landing-btn">Launch platform</a>
+            <a href="{{ url_for('login') }}" class="btn btn-secondary landing-btn">Sign in</a>
+        </div>
+        <div class="landing-note">
+            <span>Recommended:</span> install <strong>Wireshark</strong> before starting the pcap-based labs.
+            <a href="https://www.wireshark.org/download.html" target="_blank" rel="noopener">Download</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    var hero = document.getElementById('hero-section');
+    if (!hero) return;
+    hero.addEventListener('mousemove', function(e) {
+        var rect = hero.getBoundingClientRect();
+        var x = (e.clientX - rect.left) / rect.width - 0.5;
+        var y = (e.clientY - rect.top) / rect.height - 0.5;
+        hero.style.setProperty('--pointer-x', x.toFixed(3));
+        hero.style.setProperty('--pointer-y', y.toFixed(3));
+    });
+    hero.addEventListener('mouseleave', function() {
+        hero.style.setProperty('--pointer-x', '0');
+        hero.style.setProperty('--pointer-y', '0');
+    });
+})();
+</script>
+{% endblock %}
